@@ -171,7 +171,11 @@ class CocoSequenceGenerator(SequenceGenerator):
       word = word.strip()
       if word in self.vocabulary:
         stream.append(self.vocabulary[word])
+<<<<<<< HEAD
     else:  # unknown word; append UNK
+=======
+      else:  # unknown word; append UNK
+>>>>>>> lrcn/recurrent
         stream.append(self.vocabulary[UNK_IDENTIFIER])
     # increment the stream -- 0 will be the EOS character
     stream = [s + 1 for s in stream]

@@ -119,9 +119,15 @@ inline void createPoolingDesc(cudnnPoolingDescriptor_t* pool_desc,
   default:
     LOG(FATAL) << "Unknown pooling method.";
   }
+<<<<<<< HEAD
   CUDNN_CHECK(cudnnCreatePoolingDescriptor(pool_desc));
   CUDNN_CHECK(cudnnSetPooling2dDescriptor(*pool_desc, *mode, h, w,
         pad_h, pad_w, stride_h, stride_w));
+=======
+  CUDNN_CHECK(cudnnCreatePoolingDescriptor(conv));
+  CUDNN_CHECK(cudnnSetPooling2dDescriptor(*conv, *mode, h, w,
+        0, 0, stride_h, stride_w));
+>>>>>>> lrcn/recurrent
 }
 
 }  // namespace cudnn

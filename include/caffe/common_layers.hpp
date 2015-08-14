@@ -85,7 +85,7 @@ class ConcatLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& top);
 
   virtual inline const char* type() const { return "Concat"; }
-  virtual inline int MinBottomBlobs() const { return 2; }
+  virtual inline int MinBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
 
  protected:
@@ -176,11 +176,13 @@ class EltwiseLayer : public Layer<Dtype> {
   EltwiseParameter_EltwiseOp op_;
   vector<Dtype> coeffs_;
   Blob<int> max_idx_;
+  bool coeff_blob_;
 
   bool stable_prod_grad_;
 };
 
 /**
+<<<<<<< HEAD
  * @brief Takes two+ Blobs, interprets last Blob as a selector and
  *  filter remaining Blobs accordingly with selector data (0 means that
  * the corresponding item has to be filtered, non-zero means that corresponding
@@ -190,12 +192,25 @@ template <typename Dtype>
 class FilterLayer : public Layer<Dtype> {
  public:
   explicit FilterLayer(const LayerParameter& param)
+=======
+ * @brief A layer for learning "embeddings" of one-hot vector input.
+ *        Equivalent to an InnerProductLayer with one-hot vectors as input, but
+ *        for efficiency the input is the "hot" index of each column itself.
+ *
+ * TODO(dox): thorough documentation for Forward, Backward, and proto params.
+ */
+template <typename Dtype>
+class EmbedLayer : public Layer<Dtype> {
+ public:
+  explicit EmbedLayer(const LayerParameter& param)
+>>>>>>> lrcn/recurrent
       : Layer<Dtype>(param) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
+<<<<<<< HEAD
   virtual inline const char* type() const { return "Filter"; }
   virtual inline int MinBottomBlobs() const { return 2; }
   virtual inline int MinTopBlobs() const { return 1; }
@@ -241,6 +256,27 @@ class FilterLayer : public Layer<Dtype> {
 
   bool first_reshape_;
   vector<int> indices_to_forward_;
+=======
+  virtual inline const char* type() const { return "Embed"; }
+  virtual inline int ExactNumBottomBlobs() const { return 1; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  int M_;
+  int K_;
+  int N_;
+  bool bias_term_;
+  Blob<Dtype> bias_multiplier_;
+>>>>>>> lrcn/recurrent
 };
 
 /**
@@ -275,7 +311,9 @@ class FlattenLayer : public Layer<Dtype> {
    *      the outputs -- i.e., the (virtually) copied, flattened inputs
    */
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+      const vector<Blob<Dtype>*>& top) {}
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {}
 
   /**
    * @brief Computes the error gradient w.r.t. the concatenate inputs.
@@ -287,7 +325,9 @@ class FlattenLayer : public Layer<Dtype> {
    *        gradient is (virtually) copied
    */
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {}
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {}
 };
 
 /**
@@ -445,6 +485,53 @@ class ReductionLayer : public Layer<Dtype> {
 };
 
 /**
+ * @brief Reshapes an input Blob.
+ */
+template <typename Dtype>
+class ReshapeLayer : public Layer<Dtype> {
+ public:
+  explicit ReshapeLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual inline const char* type() const { return "Reshape"; }
+  virtual inline int ExactNumBottomBlobs() const { return 1; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+
+ protected:
+  /**
+   * @param bottom input Blob vector (length 1)
+   *   -# @f$ (D_1 \times D_2 \times ... \times D_m) @f$
+   *      the inputs
+   * @param top output Blob vector (length 1)
+   *   -# @f$ (d_1 \times d_2 \times ... \times d_n) @f$,
+   *      the outputs -- i.e., the (virtually) copied inputs.
+   *      The shape is specified by <code>reshape_param.shape()</code>, and the
+   *      product of the dimensions in the new shape must match that of the
+   *      input shape; i.e., @f$ d_1 d_2 ... d_n = D_1 D_2 ... D_m @f$.
+   */
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {}
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {}
+
+  /**
+   * @brief Computes the error gradient w.r.t. the concatenate inputs.
+   *
+   * @param top output Blob vector (length 1), providing the error gradient with
+   *        respect to the outputs
+   * @param propagate_down see Layer::Backward.
+   * @param bottom input Blob vector (length K), into which the top error
+   *        gradient is (virtually) copied
+   */
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {}
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {}
+};
+
+/**
  * @brief Ignores bottom blobs while producing no top blobs. (This is useful
  *        to suppress outputs during testing.)
  */
@@ -587,7 +674,7 @@ class SliceLayer : public Layer<Dtype> {
 
   virtual inline const char* type() const { return "Slice"; }
   virtual inline int ExactNumBottomBlobs() const { return 1; }
-  virtual inline int MinTopBlobs() const { return 2; }
+  virtual inline int MinTopBlobs() const { return 1; }
 
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

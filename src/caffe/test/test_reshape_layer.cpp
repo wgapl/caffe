@@ -5,8 +5,13 @@
 
 #include "caffe/blob.hpp"
 #include "caffe/common.hpp"
+<<<<<<< HEAD
 #include "caffe/common_layers.hpp"
 #include "caffe/filler.hpp"
+=======
+#include "caffe/filler.hpp"
+#include "caffe/vision_layers.hpp"
+>>>>>>> lrcn/recurrent
 
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
@@ -18,8 +23,14 @@ class ReshapeLayerTest : public MultiDeviceTest<TypeParam> {
   typedef typename TypeParam::Dtype Dtype;
  protected:
   ReshapeLayerTest()
+<<<<<<< HEAD
     : blob_bottom_(new Blob<Dtype>(2, 3, 6, 5)),
       blob_top_(new Blob<Dtype>()) {
+=======
+      : blob_bottom_(new Blob<Dtype>(2, 3, 6, 5)),
+        blob_top_(new Blob<Dtype>()) {
+    Caffe::set_random_seed(1701);
+>>>>>>> lrcn/recurrent
     // fill the values
     FillerParameter filler_param;
     GaussianFiller<Dtype> filler(filler_param);
@@ -27,9 +38,13 @@ class ReshapeLayerTest : public MultiDeviceTest<TypeParam> {
     blob_bottom_vec_.push_back(blob_bottom_);
     blob_top_vec_.push_back(blob_top_);
   }
+<<<<<<< HEAD
 
   virtual ~ReshapeLayerTest() { delete blob_bottom_; delete blob_top_; }
 
+=======
+  virtual ~ReshapeLayerTest() { delete blob_bottom_; delete blob_top_; }
+>>>>>>> lrcn/recurrent
   Blob<Dtype>* const blob_bottom_;
   Blob<Dtype>* const blob_top_;
   vector<Blob<Dtype>*> blob_bottom_vec_;
@@ -38,6 +53,7 @@ class ReshapeLayerTest : public MultiDeviceTest<TypeParam> {
 
 TYPED_TEST_CASE(ReshapeLayerTest, TestDtypesAndDevices);
 
+<<<<<<< HEAD
 TYPED_TEST(ReshapeLayerTest, TestFlattenOutputSizes) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
@@ -218,6 +234,46 @@ TYPED_TEST(ReshapeLayerTest, TestFlattenMiddle) {
   EXPECT_EQ(this->blob_top_->shape(0), 2);
   EXPECT_EQ(this->blob_top_->shape(1), 3 * 6);
   EXPECT_EQ(this->blob_top_->shape(2), 5);
+=======
+TYPED_TEST(ReshapeLayerTest, TestSetup) {
+  typedef typename TypeParam::Dtype Dtype;
+  LayerParameter layer_param;
+  BlobShape* shape = layer_param.mutable_reshape_param()->mutable_shape();
+  shared_ptr<ReshapeLayer<Dtype> > layer;
+
+  shape->Clear();
+  shape->add_dim(2 * 3 * 6 * 5);
+  layer.reset(new ReshapeLayer<Dtype>(layer_param));
+  layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  ASSERT_EQ(this->blob_top_->num_axes(), 1);
+  EXPECT_EQ(this->blob_top_->shape(0), 2 * 3 * 6 * 5);
+
+  shape->Clear();
+  shape->add_dim(2 * 3 * 6);
+  shape->add_dim(5);
+  layer.reset(new ReshapeLayer<Dtype>(layer_param));
+  layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  ASSERT_EQ(this->blob_top_->num_axes(), 2);
+  EXPECT_EQ(this->blob_top_->shape(0), 2 * 3 * 6);
+  EXPECT_EQ(this->blob_top_->shape(1), 5);
+
+  shape->Clear();
+  shape->add_dim(6);
+  shape->add_dim(1);
+  shape->add_dim(2);
+  shape->add_dim(3);
+  shape->add_dim(1);
+  shape->add_dim(5);
+  layer.reset(new ReshapeLayer<Dtype>(layer_param));
+  layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+  ASSERT_EQ(this->blob_top_->num_axes(), 6);
+  EXPECT_EQ(this->blob_top_->shape(0), 6);
+  EXPECT_EQ(this->blob_top_->shape(1), 1);
+  EXPECT_EQ(this->blob_top_->shape(2), 2);
+  EXPECT_EQ(this->blob_top_->shape(3), 3);
+  EXPECT_EQ(this->blob_top_->shape(4), 1);
+  EXPECT_EQ(this->blob_top_->shape(5), 5);
+>>>>>>> lrcn/recurrent
 }
 
 TYPED_TEST(ReshapeLayerTest, TestForward) {
@@ -277,4 +333,8 @@ TYPED_TEST(ReshapeLayerTest, TestGradient) {
       this->blob_top_vec_);
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> lrcn/recurrent
 }  // namespace caffe

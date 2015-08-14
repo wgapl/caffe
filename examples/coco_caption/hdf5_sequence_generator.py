@@ -68,7 +68,11 @@ class SequenceGenerator():
             if reached_exhaustion: exhausted[i] = True
             if not reached_exhaustion or not truncate_at_exhaustion:
               self.reset_stream(i)
+<<<<<<< HEAD
           else:
+=======
+            else:
+>>>>>>> lrcn/recurrent
               continue
           for name in self.substream_names:
             batch[name][t, i] = self.streams[i][name][self.stream_indices[i]]
