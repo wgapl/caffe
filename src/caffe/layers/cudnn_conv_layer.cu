@@ -33,7 +33,7 @@ void CuDNNConvolutionLayer<Dtype>::Forward_gpu(
 					filter_desc_,
 					conv_descs_[i],
 					top_descs_[i],
-					CUDNN_CONVOLUTION_FWD_PREFER_FASTEST,
+					CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
 					0,  // memoryLimitInBytes,
 					&algo));
 

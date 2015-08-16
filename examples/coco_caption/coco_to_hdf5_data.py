@@ -213,7 +213,7 @@ COCO_ANNO_PATH = '%s/annotations/sentences_%%s2014.json' % COCO_PATH
 COCO_IMAGE_PATTERN = '%s/images/%%s2014' % COCO_PATH
 COCO_IMAGE_ID_PATTERN = 'COCO_%s2014_%%012d.jpg'
 
-BUFFER_SIZE = 100
+BUFFER_SIZE = 50
 OUTPUT_DIR = './examples/coco_caption/h5_data/buffer_%d' % BUFFER_SIZE
 SPLITS_PATTERN = './data/coco/coco2014_cocoid.%s.txt'
 OUTPUT_DIR_PATTERN = '%s/%%s_batches' % OUTPUT_DIR
