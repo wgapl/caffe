@@ -23,9 +23,9 @@ void CuDNNReLULayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 
   CUDNN_CHECK(cudnnActivationForward(this->handle_,
         CUDNN_ACTIVATION_RELU,
-        reinterpret_cast<void *>(&alpha),
+        cudnn::dataType<Dtype>::one,
         this->bottom_desc_, bottom_data,
-        reinterpret_cast<void *>(&beta),
+        cudnn::dataType<Dtype>::zero,
         this->top_desc_, top_data));
 }
 
@@ -52,10 +52,10 @@ void CuDNNReLULayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 
   CUDNN_CHECK(cudnnActivationBackward(this->handle_,
         CUDNN_ACTIVATION_RELU,
-        reinterpret_cast<void *>(&alpha),
+        cudnn::dataType<Dtype>::one,
         this->top_desc_, top_data, this->top_desc_, top_diff,
         this->bottom_desc_, bottom_data,
-        reinterpret_cast<void *>(&beta),
+        cudnn::dataType<Dtype>::zero,
         this->bottom_desc_, bottom_diff));
 }
 
