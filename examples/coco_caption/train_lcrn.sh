@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 GPU_ID=0
+WEIGHTS=\
+./models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel
 DATA_DIR=./examples/coco_caption/h5_data/
 if [ ! -d $DATA_DIR ]; then
     echo "Data directory not found: $DATA_DIR"
@@ -10,5 +12,6 @@ if [ ! -d $DATA_DIR ]; then
 fi
 
 ./build/tools/caffe train \
-    -solver ./examples/coco_caption/lstm_lm_solver.prototxt \
+    -solver ./examples/coco_caption/lrcn_solver.prototxt \
+    -weights $WEIGHTS \
     -gpu $GPU_ID

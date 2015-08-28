@@ -93,3 +93,7 @@ LOCK
 LOG*
 CURRENT
 MANIFEST-*
+
+# Data
+data/*
+examples/coco_caption/h5_data/*

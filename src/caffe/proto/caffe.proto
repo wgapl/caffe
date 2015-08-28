@@ -152,6 +152,7 @@ message SolverParameter {
   optional int32 average_loss = 33 [default = 1];
   optional int32 max_iter = 7; // the maximum number of iterations
   // accumulate gradients over `iter_size` x `batch_size` instances
+
   optional int32 iter_size = 36 [default = 1];
 
   // The learning rate decay policy. The currently implemented learning rate
@@ -301,7 +302,15 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
+<<<<<<< HEAD
 // LayerParameter next available layer-specific ID: 139 (last added: tile_param)
+=======
+<<<<<<< HEAD
+// LayerParameter next available layer-specific ID: 137 (last added: reduction_param)
+=======
+// LayerParameter next available layer-specific ID: 135 (last added: recurrent_param)
+>>>>>>> lrcn/recurrent
+>>>>>>> origin
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -375,6 +384,7 @@ message LayerParameter {
   optional PReLUParameter prelu_param = 131;
   optional PythonParameter python_param = 130;
   optional ReductionParameter reduction_param = 136;
+  optional RecurrentParameter recurrent_param = 134;
   optional ReLUParameter relu_param = 123;
   optional ReshapeParameter reshape_param = 133;
   optional SigmoidParameter sigmoid_param = 124;
