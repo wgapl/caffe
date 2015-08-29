@@ -1021,15 +1021,6 @@ template <typename Dtype>
 void Net<Dtype>::ClearParamDiffs() {
   for (int i = 0; i < learnable_params_.size(); ++i) {
     Blob<Dtype>* blob = learnable_params_[i];
-  // First, accumulate the diffs of any shared parameters into their owner's
-  // diff. (Assumes that the learning rate, weight decay, etc. have already been
-  // accounted for in the current diff.)
-  for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] < 0) { continue; }
-    if (debug_info_) { UpdateDebugInfo(i); }
-    const int count = params_[i]->count();
-    const Dtype* this_diff;
-    Dtype* owner_diff;
     switch (Caffe::mode()) {
     case Caffe::CPU:
       caffe_set(blob->count(), static_cast<Dtype>(0),
@@ -1056,14 +1047,14 @@ void Net<Dtype>::ShareWeights() {
   }
 }
 
-template <typename Dtype>
-void Net<Dtype>::ShareWeightData() {
-  for (int i = 0; i < params_.size(); ++i) {
-    if (param_owners_[i] < 0) { continue; }
-    params_[i]->ShareData(*params_[param_owners_[i]]);
-    params_[i]->ShareDiff(*params_[param_owners_[i]]);
-  }
-}
+// template <typename Dtype>
+// void Net<Dtype>::ShareWeightData() {
+//   for (int i = 0; i < params_.size(); ++i) {
+//     if (param_owners_[i] < 0) { continue; }
+//     params_[i]->ShareData(*params_[param_owners_[i]]);
+//     params_[i]->ShareDiff(*params_[param_owners_[i]]);
+//   }
+// }
 
 template <typename Dtype>
 bool Net<Dtype>::has_blob(const string& blob_name) const {

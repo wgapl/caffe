@@ -302,15 +302,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-<<<<<<< HEAD
 // LayerParameter next available layer-specific ID: 139 (last added: tile_param)
-=======
-<<<<<<< HEAD
-// LayerParameter next available layer-specific ID: 137 (last added: reduction_param)
-=======
-// LayerParameter next available layer-specific ID: 135 (last added: recurrent_param)
->>>>>>> lrcn/recurrent
->>>>>>> origin
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -366,16 +358,16 @@ message LayerParameter {
   optional DropoutParameter dropout_param = 108;
   optional DummyDataParameter dummy_data_param = 109;
   optional EltwiseParameter eltwise_param = 110;
-  optional EmbedParameter embed_param = 137;
+  optional EmbedParameter embed_param = 138;
   optional ExpParameter exp_param = 111;
-  optional FlattenParameter flatten_param = 135;
+  optional FlattenParameter flatten_param = 136;
   optional HDF5DataParameter hdf5_data_param = 112;
   optional HDF5OutputParameter hdf5_output_param = 113;
   optional HingeLossParameter hinge_loss_param = 114;
   optional ImageDataParameter image_data_param = 115;
   optional InfogainLossParameter infogain_loss_param = 116;
   optional InnerProductParameter inner_product_param = 117;
-  optional LogParameter log_param = 134;
+  optional LogParameter log_param = 135;
   optional LRNParameter lrn_param = 118;
   optional MemoryDataParameter memory_data_param = 119;
   optional MVNParameter mvn_param = 120;
@@ -383,7 +375,7 @@ message LayerParameter {
   optional PowerParameter power_param = 122;
   optional PReLUParameter prelu_param = 131;
   optional PythonParameter python_param = 130;
-  optional ReductionParameter reduction_param = 136;
+  optional ReductionParameter reduction_param = 137;
   optional RecurrentParameter recurrent_param = 134;
   optional ReLUParameter relu_param = 123;
   optional ReshapeParameter reshape_param = 133;
@@ -393,7 +385,7 @@ message LayerParameter {
   optional SliceParameter slice_param = 126;
   optional TanHParameter tanh_param = 127;
   optional ThresholdParameter threshold_param = 128;
-  optional TileParameter tile_param = 138;
+  optional TileParameter tile_param = 139;
   optional WindowDataParameter window_data_param = 129;
 }
 
@@ -598,19 +590,6 @@ message EmbedParameter {
 
 }
 
-// Message that stores parameters used by EmbedLayer
-message EmbedParameter {
-  optional uint32 num_output = 1; // The number of outputs for the layer
-  // The input is given as integers to be interpreted as one-hot
-  // vector indices with dimension num_input.  Hence num_input should be
-  // 1 greater than the maximum possible input value.
-  optional uint32 input_dim = 2;
-
-  optional bool bias_term = 3 [default = true]; // Whether to use a bias term
-  optional FillerParameter weight_filler = 4; // The filler for the weight
-  optional FillerParameter bias_filler = 5; // The filler for the bias
-
-}
 
 // Message that stores parameters used by ExpLayer
 message ExpParameter {
@@ -831,11 +810,11 @@ message ReductionParameter {
 }
 
 // Message that stores parameters used by ReshapeLayer
-message ReshapeParameter {
+//message ReshapeParameter {
   // The new shape of the Blob. Must have the same "count" (product of
   // dimensions) as the input Blob.
-  optional BlobShape shape = 1;
-}
+  // optional BlobShape shape = 1;
+//}
 
 // Message that stores parameters used by RecurrentLayer
 message RecurrentParameter {

@@ -16,7 +16,7 @@ void RecurrentLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
 	// TODO: somehow make this work non-hackily.
 
 	  if (this->phase_ == TEST) {
-	    unrolled_net_->ShareWeightData();
+	    unrolled_net_->ShareWeights();
 	  }
 
 	DCHECK_EQ(recur_input_blobs_.size(), recur_output_blobs_.size());

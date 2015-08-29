@@ -9,122 +9,152 @@
 
 namespace caffe {
 
-// Set to three for the benefit of the backward pass, which
-// can use separate streams for calculating the gradient w.r.t.
-// bias, filter weights, and bottom data for each group independently
-#define CUDNN_STREAMS_PER_GROUP 3
+__global__ void sync_conv_groups() { }
 
-/**
- * TODO(dox) explain cuDNN interface
- */
 template <typename Dtype>
-void CuDNNConvolutionLayer<Dtype>::LayerSetUp(
+void CuDNNConvolutionLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  ConvolutionLayer<Dtype>::LayerSetUp(bottom, top);
-  // Initialize CUDA streams and cuDNN.
-  stream_         = new cudaStream_t[this->group_ * CUDNN_STREAMS_PER_GROUP];
-  handle_         = new cudnnHandle_t[this->group_ * CUDNN_STREAMS_PER_GROUP];
-  workspaceSizeInBytes = 0;
-  workspace = NULL;
+  for (int i = 0; i < bottom.size(); ++i) {
+    const Dtype* bottom_data = bottom[i]->gpu_data();
+    Dtype* top_data = top[i]->mutable_gpu_data();
+    const Dtype* weight = this->blobs_[0]->gpu_data();
 
-  for (int g = 0; g < this->group_ * CUDNN_STREAMS_PER_GROUP; g++) {
-    CUDA_CHECK(cudaStreamCreate(&stream_[g]));
-    CUDNN_CHECK(cudnnCreate(&handle_[g]));
-    CUDNN_CHECK(cudnnSetStream(handle_[g], stream_[g]));
+    size_t workspace_limit_bytes = this->kernel_h_ *
+                                   this->kernel_w_ *
+                                   this->channels_ *
+                                   sizeof(int) + 1;
+
+    // Forward through cuDNN in parallel over groups.
+    for (int g = 0; g < this->group_; g++) {
+      cudnnConvolutionFwdAlgo_t algo;
+
+      // pick the convolution algorithm
+      // TODO(shelhamer) this should be done during reshape
+      // TODO(shelhamer) the choice of automatic or manual algorithm picking
+      // should be exposed in proto
+      CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm(handle_[g],
+        bottom_descs_[i],
+        filter_desc_,
+        conv_descs_[i],
+        top_descs_[i],
+        CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT,
+        workspace_limit_bytes,  // memoryLimitInBytes,
+        &algo));
+
+      // get minimum size of the workspace needed for the desired algorithm
+      size_t workspaceSizeInBytes_temp = 0;
+
+      CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(handle_[g],
+        bottom_descs_[i],
+        filter_desc_,
+        conv_descs_[i],
+        top_descs_[i],
+        algo,
+        &workspaceSizeInBytes_temp));
+
+      if (workspaceSizeInBytes_temp > workspaceSizeInBytes) {
+        workspaceSizeInBytes = workspaceSizeInBytes_temp;
+        // free the existing workspace and allocate a new (larger) one
+        cudaFree(this->workspace);
+        cudaError_t err = cudaMalloc(&(this->workspace), workspaceSizeInBytes);
+        if (err != cudaSuccess) {
+          // force zero memory path
+          algo = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM;
+          workspace = NULL;
+          workspaceSizeInBytes = 0;
+        }
+      }
+
+      // Filters.
+      CUDNN_CHECK(cudnnConvolutionForward(handle_[g],
+            cudnn::dataType<Dtype>::one,
+            bottom_descs_[i], bottom_data + bottom_offset_ * g,
+            filter_desc_, weight + weight_offset_ * g,
+            conv_descs_[i],
+            algo, workspace, workspaceSizeInBytes,
+            cudnn::dataType<Dtype>::zero,
+            top_descs_[i], top_data + top_offset_ * g));
+
+      // Bias.
+      if (this->bias_term_) {
+        const Dtype* bias_data = this->blobs_[1]->gpu_data();
+        CUDNN_CHECK(cudnnAddTensor(handle_[g], CUDNN_ADD_SAME_C,
+              cudnn::dataType<Dtype>::one,
+              bias_desc_, bias_data + bias_offset_ * g,
+              cudnn::dataType<Dtype>::one,
+              top_descs_[i], top_data + top_offset_ * g));
+      }
+    }
+
+    // Synchronize the work across groups, each of which went into its own
+    // stream, by launching an empty kernel into the default (null) stream.
+    // NOLINT_NEXT_LINE(whitespace/operators)
+    sync_conv_groups<<<1, 1>>>();
   }
-
-  // Set the indexing parameters.
-  weight_offset_ = (this->num_output_ / this->group_)
-      * (this->channels_ / this->group_) * this->kernel_h_ * this->kernel_w_;
-  bias_offset_ = (this->num_output_ / this->group_);
-
-  // Create filter descriptor.
-  cudnn::createFilterDesc<Dtype>(&filter_desc_,
-      this->num_output_ / this->group_, this->channels_ / this->group_,
-      this->kernel_h_, this->kernel_w_);
-
-  // Create tensor descriptor(s) for data and corresponding convolution(s).
-  for (int i = 0; i < bottom.size(); i++) {
-    cudnnTensorDescriptor_t bottom_desc;
-    cudnn::createTensor4dDesc<Dtype>(&bottom_desc);
-    bottom_descs_.push_back(bottom_desc);
-    cudnnTensorDescriptor_t top_desc;
-    cudnn::createTensor4dDesc<Dtype>(&top_desc);
-    top_descs_.push_back(top_desc);
-    cudnnConvolutionDescriptor_t conv_desc;
-    cudnn::createConvolutionDesc<Dtype>(&conv_desc);
-    conv_descs_.push_back(conv_desc);
-  }
-
-  // Tensor descriptor for bias.
-  if (this->bias_term_) {
-    cudnn::createTensor4dDesc<Dtype>(&bias_desc_);
-  }
-
-  handles_setup_ = true;
 }
 
 template <typename Dtype>
-void CuDNNConvolutionLayer<Dtype>::Reshape(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  ConvolutionLayer<Dtype>::Reshape(bottom, top);
-  bottom_offset_ = (this->channels_ / this->group_)
-      * this->height_ * this->width_;
-  top_offset_ = (this->num_output_ / this->group_)
-      * this->height_out_ * this->width_out_;
-
-  for (int i = 0; i < bottom.size(); i++) {
-    cudnn::setTensor4dDesc<Dtype>(&bottom_descs_[i],
-        this->num_,
-        this->channels_ / this->group_,
-        this->height_, this->width_,
-        this->channels_ * this->height_ * this->width_,
-        this->height_ * this->width_,
-        this->width_, 1);
-    cudnn::setTensor4dDesc<Dtype>(&top_descs_[i],
-        this->num_,
-        this->num_output_ / this->group_,
-        this->height_out_, this->width_out_,
-        this->num_output_ * this->height_out_ * this->width_out_,
-        this->height_out_ * this->width_out_,
-        this->width_out_, 1);
-    cudnn::setConvolutionDesc<Dtype>(&conv_descs_[i], bottom_descs_[i],
-        filter_desc_, this->pad_h_, this->pad_w_,
-        this->stride_h_, this->stride_w_);
+void CuDNNConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+  const Dtype* weight = NULL;
+  Dtype* weight_diff = NULL;
+  if (this->param_propagate_down_[0]) {
+    weight = this->blobs_[0]->gpu_data();
+    weight_diff = this->blobs_[0]->mutable_gpu_diff();
   }
+  Dtype* bias_diff = NULL;
+  if (this->bias_term_ && this->param_propagate_down_[1]) {
+    bias_diff = this->blobs_[1]->mutable_gpu_diff();
+  }
+  for (int i = 0; i < top.size(); ++i) {
+    const Dtype* top_diff = top[i]->gpu_diff();
+    // Backward through cuDNN in parallel over groups and gradients.
+    for (int g = 0; g < this->group_; g++) {
+      // Gradient w.r.t. bias.
+      if (this->bias_term_ && this->param_propagate_down_[1]) {
+        CUDNN_CHECK(cudnnConvolutionBackwardBias(handle_[0*this->group_ + g],
+              cudnn::dataType<Dtype>::one,
+              top_descs_[i],  top_diff + top_offset_ * g,
+              cudnn::dataType<Dtype>::one,
+              bias_desc_, bias_diff + bias_offset_ * g));
+      }
 
-  // Tensor descriptor for bias.
-  if (this->bias_term_) {
-    cudnn::setTensor4dDesc<Dtype>(&bias_desc_,
-        1, this->num_output_ / this->group_, 1, 1);
+      // Gradient w.r.t. weights.
+      if (this->param_propagate_down_[0]) {
+        const Dtype* bottom_data = bottom[i]->gpu_data();
+        CUDNN_CHECK(cudnnConvolutionBackwardFilter(handle_[1*this->group_ + g],
+              cudnn::dataType<Dtype>::one,
+              bottom_descs_[i], bottom_data + bottom_offset_ * g,
+              top_descs_[i],    top_diff + top_offset_ * g,
+              conv_descs_[i],
+              cudnn::dataType<Dtype>::one,
+              filter_desc_, weight_diff + weight_offset_ * g));
+      }
+
+      // Gradient w.r.t. bottom data.
+      if (propagate_down[i]) {
+        if (weight == NULL) {
+          weight = this->blobs_[0]->gpu_data();
+        }
+        Dtype* bottom_diff = bottom[i]->mutable_gpu_diff();
+        CUDNN_CHECK(cudnnConvolutionBackwardData(handle_[2*this->group_ + g],
+              cudnn::dataType<Dtype>::one,
+              filter_desc_, weight + weight_offset_ * g,
+              top_descs_[i], top_diff + top_offset_ * g,
+              conv_descs_[i],
+              cudnn::dataType<Dtype>::zero,
+              bottom_descs_[i], bottom_diff + bottom_offset_ * g));
+      }
+    }
+
+    // Synchronize the work across groups, each of which went into its own
+    // stream, by launching an empty kernel into the default (null) stream.
+    // NOLINT_NEXT_LINE(whitespace/operators)
+    sync_conv_groups<<<1, 1>>>();
   }
 }
 
-template <typename Dtype>
-CuDNNConvolutionLayer<Dtype>::~CuDNNConvolutionLayer() {
-  // Check that handles have been setup before destroying.
-  if (!handles_setup_) { return; }
+INSTANTIATE_LAYER_GPU_FUNCS(CuDNNConvolutionLayer);
 
-  for (int i = 0; i < bottom_descs_.size(); i++) {
-    cudnnDestroyTensorDescriptor(bottom_descs_[i]);
-    cudnnDestroyTensorDescriptor(top_descs_[i]);
-    cudnnDestroyConvolutionDescriptor(conv_descs_[i]);
-  }
-  if (this->bias_term_) {
-    cudnnDestroyTensorDescriptor(bias_desc_);
-  }
-  cudnnDestroyFilterDescriptor(filter_desc_);
-
-  for (int g = 0; g < this->group_ * CUDNN_STREAMS_PER_GROUP; g++) {
-    cudaStreamDestroy(stream_[g]);
-    cudnnDestroy(handle_[g]);
-  }
-
-  delete [] stream_;
-  delete [] handle_;
-}
-
-INSTANTIATE_CLASS(CuDNNConvolutionLayer);
-
-}   // namespace caffe
+}  // namespace caffe
 #endif
